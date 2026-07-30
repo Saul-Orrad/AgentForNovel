@@ -1,2 +1,2 @@
 # AgentForNovel
-a agent for novel creation /semi-automation
+a agent for novel creation /semi-automation 
