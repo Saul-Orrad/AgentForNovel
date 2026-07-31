@@ -5,7 +5,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from src.agents.apply_agent import ApplyAgent
 from src.agents.audit_agent import AuditAgent
-from src.state import NovelWritingState
+from .novel_state import NovelWritingState
 
 
 class NovelWritingGraph:

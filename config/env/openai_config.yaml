@@ -1,0 +1,6 @@
+# OpenAI API 配置
+# 请填入你的真实配置，此文件已在 .gitignore 中排除
+
+model: "gpt-4o"
+base_url: ""
+api_key: ""

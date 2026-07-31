@@ -15,7 +15,7 @@ class AuditAgent:
 
     @staticmethod
     def _load_prompt() -> str:
-        prompt_path = Path(__file__).parent.parent.parent / "config" / "audit_agent_prompt.md"
+        prompt_path = Path(__file__).parent.parent.parent / "config" / "prompt" / "audit_agent_prompt.md"
         if prompt_path.exists():
             return prompt_path.read_text(encoding="utf-8")
         return "你是一位专业的小说审核编辑，负责审核小说内容并给出建设性反馈。"

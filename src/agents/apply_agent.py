@@ -15,7 +15,7 @@ class ApplyAgent:
 
     @staticmethod
     def _load_prompt() -> str:
-        prompt_path = Path(__file__).parent.parent.parent / "config" / "apply_agent_prompt.md"
+        prompt_path = Path(__file__).parent.parent.parent / "config" / "prompt" / "apply_agent_prompt.md"
         if prompt_path.exists():
             return prompt_path.read_text(encoding="utf-8")
         return "你是一位专业的小说写作助手，负责撰写小说内容。"
