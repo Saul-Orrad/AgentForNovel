@@ -3,59 +3,64 @@ from typing import Literal
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
-from src.agents.apply_agent import ApplyAgent
+from src.agents.detail_augmentation_agent import DetailAugmentationAgent
+from src.agents.dialogue_complementation_agent import DialogueComplementationAgent
 from src.agents.audit_agent import AuditAgent
 from .novel_state import NovelWritingState
 
 
 class NovelWritingGraph:
-    """基于 LangGraph 的小说写作图 —— ApplyAgent 与 AuditAgent 循环流转"""
+    """小说写作图 —— detail -> dialogue -> audit，audit 未通过则回到 detail"""
 
-    def __init__(self, apply_agent: ApplyAgent | None = None, audit_agent: AuditAgent | None = None):
-        self.apply_agent = apply_agent or ApplyAgent()
+    def __init__(
+        self,
+        detail_agent: DetailAugmentationAgent | None = None,
+        dialogue_agent: DialogueComplementationAgent | None = None,
+        audit_agent: AuditAgent | None = None,
+    ):
+        self.detail_agent = detail_agent or DetailAugmentationAgent()
+        self.dialogue_agent = dialogue_agent or DialogueComplementationAgent()
         self.audit_agent = audit_agent or AuditAgent()
         self._graph = self._build_graph()
 
-    def _apply_node(self, state: NovelWritingState) -> dict:
-        """ApplyAgent 节点：撰写/修改小说内容"""
-        result = self.apply_agent.invoke(state)
-        result["history"] = [{"role": "apply", "iteration": state.get("iteration", 0)}]
+    def _detail_node(self, state: NovelWritingState) -> dict:
+        result = self.detail_agent.invoke(state)
+        result["history"] = [{"role": "detail_augmentation"}]
+        return result
+
+    def _dialogue_node(self, state: NovelWritingState) -> dict:
+        result = self.dialogue_agent.invoke(state)
+        result["history"] = [{"role": "dialogue_complementation"}]
         return result
 
     def _audit_node(self, state: NovelWritingState) -> dict:
-        """AuditAgent 节点：审核小说内容"""
         result = self.audit_agent.invoke(state)
-        result["history"] = [{"role": "audit", "iteration": state.get("iteration", 0)}]
+        result["history"] = [{"role": "audit"}]
         return result
 
-    def _should_continue(self, state: NovelWritingState) -> Literal["apply", "__end__"]:
-        """路由判断：审核通过或达到最大迭代次数则结束，否则回到 ApplyAgent 继续修改"""
-        if state.get("approved", False):
+    def _should_continue(self, state: NovelWritingState) -> Literal["detail_augmentation", "__end__"]:
+        if state.get("audit_result", False):
             return END
-        if state.get("iteration", 0) >= state.get("max_iterations", 3):
-            return END
-        return "apply"
+        return "detail_augmentation"
 
     def _build_graph(self) -> StateGraph:
-        """构建 LangGraph 图
-
-        流程：
-        START -> apply (撰写) -> audit (审核) -> 判断是否通过
-          - 通过 / 超限 -> END
-          - 未通过 -> apply (修改) -> audit (审核) -> ...循环
-        """
         builder = StateGraph(NovelWritingState)
 
-        builder.add_node("apply", self._apply_node)
+        builder.add_node("detail_augmentation", self._detail_node)
+        builder.add_node("dialogue_complementation", self._dialogue_node)
         builder.add_node("audit", self._audit_node)
 
-        builder.set_entry_point("apply")
-        builder.add_edge("apply", "audit")
+        # 流程: detail -> dialogue -> audit
+        builder.set_entry_point("detail_augmentation")
+        builder.add_edge("detail_augmentation", "dialogue_complementation")
+        builder.add_edge("dialogue_complementation", "audit")
+
+        # audit 条件路由: 通过则结束，否则回到 detail
         builder.add_conditional_edges(
             "audit",
             self._should_continue,
             {
-                "apply": "apply",
+                "detail_augmentation": "detail_augmentation",
                 END: END,
             },
         )
@@ -67,24 +72,15 @@ class NovelWritingGraph:
     def graph(self):
         return self._graph
 
-    def run(self, task: str, max_iterations: int = 3, config: dict | None = None) -> NovelWritingState:
-        """运行小说写作流程
-
-        Args:
-            task: 创作任务描述
-            max_iterations: 最大循环次数
-            config: LangGraph 配置（含 thread_id 等）
-
-        Returns:
-            NovelWritingState: 最终状态
-        """
+    def run(self, novel_content: str = "", dynamic_prompt: str = "", config: dict | None = None) -> NovelWritingState:
         initial_state: NovelWritingState = {
-            "task": task,
-            "novel_content": "",
+            "source_agent": "",
+            "target_agent": "detail_augmentation",
+            "novel_content": novel_content,
+            "dynamic_prompt": dynamic_prompt,
+            "extract_result": "",
+            "audit_result": False,
             "audit_feedback": "",
-            "iteration": 0,
-            "max_iterations": max_iterations,
-            "approved": False,
             "history": [],
         }
 
@@ -95,8 +91,12 @@ class NovelWritingGraph:
 
 
 def create_novel_writing_graph(
-    apply_agent: ApplyAgent | None = None,
+    detail_agent: DetailAugmentationAgent | None = None,
+    dialogue_agent: DialogueComplementationAgent | None = None,
     audit_agent: AuditAgent | None = None,
 ) -> NovelWritingGraph:
-    """工厂函数：创建小说写作图实例"""
-    return NovelWritingGraph(apply_agent=apply_agent, audit_agent=audit_agent)
+    return NovelWritingGraph(
+        detail_agent=detail_agent,
+        dialogue_agent=dialogue_agent,
+        audit_agent=audit_agent,
+    )

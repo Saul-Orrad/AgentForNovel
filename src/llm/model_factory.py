@@ -22,8 +22,10 @@ class ModelFactory:
 
     # 默认配置
     DEFAULT_MODEL = "gpt-4o"
-    DEFAULT_APPLY_TEMPERATURE = 0.8
+    DEFAULT_DETAIL_TEMPERATURE = 0.8
+    DEFAULT_DIALOGUE_TEMPERATURE = 0.8
     DEFAULT_AUDIT_TEMPERATURE = 0.3
+    DEFAULT_EXTRACT_TEMPERATURE = 0.3
 
     def __init__(
         self,
@@ -48,13 +50,21 @@ class ModelFactory:
         kwargs.update(extra)
         return kwargs
 
-    def create_apply_llm(self, **extra) -> BaseChatModel:
-        """创建 ApplyAgent 使用的 LLM"""
-        return ChatOpenAI(**self._build_kwargs(self.DEFAULT_APPLY_TEMPERATURE, **extra))
+    def create_detail_llm(self, **extra) -> BaseChatModel:
+        """创建 DetailAugmentationAgent 使用的 LLM"""
+        return ChatOpenAI(**self._build_kwargs(self.DEFAULT_DETAIL_TEMPERATURE, **extra))
+
+    def create_dialogue_llm(self, **extra) -> BaseChatModel:
+        """创建 DialogueComplementationAgent 使用的 LLM"""
+        return ChatOpenAI(**self._build_kwargs(self.DEFAULT_DIALOGUE_TEMPERATURE, **extra))
 
     def create_audit_llm(self, **extra) -> BaseChatModel:
         """创建 AuditAgent 使用的 LLM"""
         return ChatOpenAI(**self._build_kwargs(self.DEFAULT_AUDIT_TEMPERATURE, **extra))
+
+    def create_extract_llm(self, **extra) -> BaseChatModel:
+        """创建 ExtractAgent 使用的 LLM"""
+        return ChatOpenAI(**self._build_kwargs(self.DEFAULT_EXTRACT_TEMPERATURE, **extra))
 
     def create_llm(self, temperature: float = 0.7, **extra) -> BaseChatModel:
         """创建通用 LLM"""
@@ -72,11 +82,21 @@ def get_default_factory() -> ModelFactory:
     return _default_factory
 
 
-def create_apply_llm(**extra) -> BaseChatModel:
-    """便捷函数：创建 ApplyAgent 使用的 LLM"""
-    return get_default_factory().create_apply_llm(**extra)
+def create_detail_llm(**extra) -> BaseChatModel:
+    """便捷函数：创建 DetailAugmentationAgent 使用的 LLM"""
+    return get_default_factory().create_detail_llm(**extra)
+
+
+def create_dialogue_llm(**extra) -> BaseChatModel:
+    """便捷函数：创建 DialogueComplementationAgent 使用的 LLM"""
+    return get_default_factory().create_dialogue_llm(**extra)
 
 
 def create_audit_llm(**extra) -> BaseChatModel:
     """便捷函数：创建 AuditAgent 使用的 LLM"""
     return get_default_factory().create_audit_llm(**extra)
+
+
+def create_extract_llm(**extra) -> BaseChatModel:
+    """便捷函数：创建 ExtractAgent 使用的 LLM"""
+    return get_default_factory().create_extract_llm(**extra)
