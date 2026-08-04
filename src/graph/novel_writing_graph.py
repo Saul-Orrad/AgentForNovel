@@ -1,26 +1,21 @@
-from typing import Literal
-
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.agents.detail_augmentation_agent import DetailAugmentationAgent
 from src.agents.dialogue_complementation_agent import DialogueComplementationAgent
-from src.agents.audit_agent import AuditAgent
 from .novel_state import NovelWritingState
 
 
 class NovelWritingGraph:
-    """小说写作图 —— detail -> dialogue -> audit，audit 未通过则回到 detail"""
+    """小说写作图（最小化运行） —— detail -> dialogue"""
 
     def __init__(
         self,
         detail_agent: DetailAugmentationAgent | None = None,
         dialogue_agent: DialogueComplementationAgent | None = None,
-        audit_agent: AuditAgent | None = None,
     ):
         self.detail_agent = detail_agent or DetailAugmentationAgent()
         self.dialogue_agent = dialogue_agent or DialogueComplementationAgent()
-        self.audit_agent = audit_agent or AuditAgent()
         self._graph = self._build_graph()
 
     def _detail_node(self, state: NovelWritingState) -> dict:
@@ -33,37 +28,16 @@ class NovelWritingGraph:
         result["history"] = [{"role": "dialogue_complementation"}]
         return result
 
-    def _audit_node(self, state: NovelWritingState) -> dict:
-        result = self.audit_agent.invoke(state)
-        result["history"] = [{"role": "audit"}]
-        return result
-
-    def _should_continue(self, state: NovelWritingState) -> Literal["detail_augmentation", "__end__"]:
-        if state.get("audit_result", False):
-            return END
-        return "detail_augmentation"
-
     def _build_graph(self) -> StateGraph:
         builder = StateGraph(NovelWritingState)
 
         builder.add_node("detail_augmentation", self._detail_node)
         builder.add_node("dialogue_complementation", self._dialogue_node)
-        builder.add_node("audit", self._audit_node)
 
-        # 流程: detail -> dialogue -> audit
+        # 流程: detail -> dialogue -> end
         builder.set_entry_point("detail_augmentation")
         builder.add_edge("detail_augmentation", "dialogue_complementation")
-        builder.add_edge("dialogue_complementation", "audit")
-
-        # audit 条件路由: 通过则结束，否则回到 detail
-        builder.add_conditional_edges(
-            "audit",
-            self._should_continue,
-            {
-                "detail_augmentation": "detail_augmentation",
-                END: END,
-            },
-        )
+        builder.add_edge("dialogue_complementation", END)
 
         memory = MemorySaver()
         return builder.compile(checkpointer=memory)
@@ -79,8 +53,6 @@ class NovelWritingGraph:
             "novel_content": novel_content,
             "dynamic_prompt": dynamic_prompt,
             "extract_result": "",
-            "audit_result": False,
-            "audit_feedback": "",
             "history": [],
         }
 
@@ -93,10 +65,8 @@ class NovelWritingGraph:
 def create_novel_writing_graph(
     detail_agent: DetailAugmentationAgent | None = None,
     dialogue_agent: DialogueComplementationAgent | None = None,
-    audit_agent: AuditAgent | None = None,
 ) -> NovelWritingGraph:
     return NovelWritingGraph(
         detail_agent=detail_agent,
         dialogue_agent=dialogue_agent,
-        audit_agent=audit_agent,
     )
