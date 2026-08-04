@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from langchain_core.language_models import BaseChatModel
@@ -7,7 +8,6 @@ from src.llm import create_audit_llm
 
 
 class AuditAgent:
-    """审核节点 —— 对小说内容进行审核，决定是否通过或需要回退到 detail"""
 
     def __init__(self, llm: BaseChatModel | None = None):
         self._llm = llm or create_audit_llm()
@@ -18,7 +18,7 @@ class AuditAgent:
         prompt_path = Path(__file__).parent.parent.parent / "config" / "prompt" / "audit_prompt.yml"
         if prompt_path.exists():
             return prompt_path.read_text(encoding="utf-8")
-        return "对小说内容进行审核，给出详细反馈。如果内容已达到要求，请明确标注 [APPROVED]。"
+        return ""
 
     @property
     def system_prompt(self) -> str:
@@ -26,22 +26,29 @@ class AuditAgent:
 
     def invoke(self, state: dict) -> dict:
         messages = [SystemMessage(content=self._system_prompt)]
-
-        novel_content = state.get("novel_content", "")
-
-        user_parts = [f"## 待审核小说内容\n{novel_content}"]
-        user_parts.append("请对以上小说内容进行审核，给出详细反馈。如果内容已达到要求，请在反馈中明确标注 [APPROVED]。")
-
-        user_message = "\n\n".join(user_parts)
+        user_message = state.get("novel_content", "")
         messages.append(HumanMessage(content=user_message))
 
         response = self._llm.invoke(messages)
-        feedback = response.content
-        approved = "[APPROVED]" in feedback
+        parsed = self._parse_response(response.content)
+
+        audit_result = parsed.get("audit_result", 1)
+        audit_feedback = parsed.get("audit_feedback", "")
 
         return {
-            "audit_result": approved,
-            "audit_feedback": feedback,
+            "audit_result": audit_result,
+            "audit_feedback": audit_feedback,
             "source_agent": "audit",
-            "target_agent": "detail_augmentation" if not approved else "__end__",
+            "target_agent": "detail_augmentation" if audit_result != 0 else "__end__",
         }
+
+    @staticmethod
+    def _parse_response(content: str) -> dict:
+        content = content.strip()
+        if content.startswith("```"):
+            lines = content.split("\n")
+            content = "\n".join(lines[1:-1] if len(lines) > 2 else lines)
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            return {}
