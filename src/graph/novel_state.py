@@ -5,7 +5,10 @@ import operator
 
 
 class NovelWritingState(TypedDict):
-    """小说写作流程的状态定义"""
+
+    # ---- 任务标识 ----
+    task_id: str
+    time_stamp:str
 
     # ---- 路由相关 ----
     source_agent: str          # 来源 agent 名称
