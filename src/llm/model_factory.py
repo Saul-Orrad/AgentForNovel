@@ -10,7 +10,7 @@ from langchain_core.language_models import BaseChatModel
 
 def _load_config() -> dict:
     """从 env/openai_config.yaml 加载配置，返回空字典则使用环境变量回退"""
-    config_path = Path(__file__).parent.parent.parent / "env" / "openai_config.yaml"
+    config_path = Path(__file__).parent.parent.parent / "config" / "env" / "openai_config.yaml"
     if config_path.exists():
         with open(config_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f) or {}

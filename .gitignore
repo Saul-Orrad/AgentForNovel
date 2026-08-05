@@ -7,7 +7,9 @@ ENV/
 # env 配置文件（替换整个 env/ 忽略规则，仅排除实际配置）
 !env/
 env/openai_config.yaml
+config/env/openai_config.yaml
 env/*.local.yaml
+example/
 
 # Python 缓存
 __pycache__/

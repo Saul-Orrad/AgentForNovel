@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timezone
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -31,9 +32,12 @@ class DialogueComplementationAgent:
         return self._system_prompt
 
     def invoke(self, state: dict) -> dict:
+        t0 = datetime.now(timezone.utc)
+        novel_content = state.get("novel_content", "")
+        print(f"[dialogue_complementation] 开始，输入 {len(novel_content)} 字符")
+
         messages = [SystemMessage(content=self._system_prompt)]
 
-        novel_content = state.get("novel_content", "")
         dynamic_prompt = get_dynamic_prompt()
         human_message = f"【原文】: {novel_content} 【风格】：{dynamic_prompt}"
 
@@ -41,13 +45,14 @@ class DialogueComplementationAgent:
             messages.append(HumanMessage(content=human_message))
 
         response = self._llm.invoke(messages)
-        response = self._llm.invoke(messages)
+
+        elapsed = (datetime.now(timezone.utc) - t0).total_seconds()
+        print(f"[dialogue_complementation] 完成，输出 {len(response.content)} 字符，耗时 {elapsed:.1f}s")
 
         return {
             "task_id": state.get("task_id"),
             "novel_content": response.content,
             "source_agent": "dialogue_complementation",
             "target_agent": "audit",
-            "times_tamp": datetime.now(timezone.utc).isoformat(),
-
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
